@@ -1,0 +1,201 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MegaCarecteres Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-light: #f5f8fa;
+  --bg-dark: #0f1724;
+  --card-light: #ffffff;
+  --card-dark: #1e293b;
+  --text-light: #1f2937;
+  --text-dark: #f1f5f9;
+  --primary: #ff6f00;
+  --accent: #00aaff;
+  --shadow: 0 8px 24px rgba(0,0,0,0.10);
+}
+html[data-theme="dark"] { background: var(--bg-dark); color: var(--text-dark); }
+html[data-theme="light"] { background: var(--bg-light); color: var(--text-light); }
+body { margin:0; font-family:Inter, sans-serif; display:flex; justify-content:flex-end; align-items:flex-end; height:100vh; }
+#chat-fab { position:fixed; bottom:24px; right:24px; width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#ff9a3d); display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; box-shadow:var(--shadow); z-index:9999; transition:transform .2s ease; }
+#chat-fab:hover { transform:translateY(-4px) scale(1.05); }
+#chat-window { position:fixed; bottom:100px; right:24px; width:420px; max-height:80vh; background:var(--card-light); border-radius:16px; box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; transform:translateY(20px) scale(0.98); opacity:0; pointer-events:none; transition:transform .3s ease, opacity .3s ease; }
+html[data-theme="dark"] #chat-window { background:var(--card-dark); }
+#chat-window.open { transform:translateY(0) scale(1); opacity:1; pointer-events:auto; }
+#chat-header { display:flex; align-items:center; gap:12px; padding:12px 16px; background:var(--primary); color:#fff; }
+#chat-header img.logo { width:40px; height:40px; border-radius:8px; object-fit:cover; }
+#chat-header .title { font-size:16px; font-weight:700; }
+#chat-header .subtitle { font-size:12px; opacity:0.85; }
+.header-actions { margin-left:auto; display:flex; gap:8px; }
+.icon-btn { width:36px; height:36px; display:flex; align-items:center; justify-content:center; border:none; background:transparent; cursor:pointer; color:#fff; }
+#messages { padding:16px; flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:var(--bg-light); }
+html[data-theme="dark"] #messages { background:var(--bg-dark); }
+.msg { display:flex; align-items:flex-start; gap:8px; animation:pop .2s cubic-bezier(.2,.9,.3,1); }
+.msg.user { justify-content:flex-end; }
+.bubble { padding:10px 14px; border-radius:16px; max-width:75%; position:relative; font-size:14px; }
+.msg.user .bubble { background:var(--primary); color:#fff; border-bottom-right-radius:6px; }
+.msg.bot .bubble { background:var(--card-light); color:var(--text-light); border-bottom-left-radius:6px; }
+html[data-theme="dark"] .msg.bot .bubble { background:var(--card-dark); color:var(--text-dark); }
+@keyframes pop { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.images-container { display:flex; gap:8px; overflow-x:auto; margin-top:8px; }
+.images-container img { width:90px; height:64px; border-radius:8px; object-fit:cover; transition:transform .2s ease; }
+.images-container img:hover { transform:scale(1.1); }
+.product-card { display:flex; gap:10px; align-items:flex-start; margin-bottom:12px; }
+.product-card img { width:84px; height:64px; border-radius:8px; object-fit:cover; flex-shrink:0; }
+.product-info { display:flex; flex-direction:column; gap:4px; }
+.product-info .name { font-weight:600; font-size:15px; }
+.product-info .meta { font-size:12px; color:gray; }
+.product-info .price { font-weight:700; color:var(--primary); font-size:15px; }
+#controls { display:flex; gap:8px; padding:12px; border-top:1px solid rgba(0,0,0,0.06); background:var(--bg-light); }
+html[data-theme="dark"] #controls { background:var(--bg-dark); border-top:1px solid rgba(255,255,255,0.08); }
+#user-input { flex:1; padding:10px 12px; border-radius:999px; border:1px solid rgba(0,0,0,0.1); outline:none; background:transparent; font-size:14px; color:inherit; }
+#send-btn { background:#00aaff; color:#fff; border:none; border-radius:999px; padding:10px 14px; font-weight:600; cursor:pointer; }
+#send-btn:hover { background:#0098e0; }
+@media (max-width:480px) { #chat-window { width:calc(100% - 48px); right:24px; left:24px; bottom:90px; } }
+</style>
+</head>
+<body>
+
+<div id="chat-fab" title="Abrir chat">💬</div>
+
+<div id="chat-window">
+  <div id="chat-header">
+    <img class="logo" src="https://cdn-icons-png.flaticon.com/512/833/833314.png" alt="MegaCarecteres logo">
+    <div>
+      <div class="title">MegaCarecteres 🏪</div>
+      <div class="subtitle">Preguntame por productos, precios y stock</div>
+    </div>
+    <div class="header-actions">
+      <button id="theme-toggle" class="icon-btn" title="Cambiar tema">🌓</button>
+      <button id="close-btn" class="icon-btn" title="Cerrar chat">✕</button>
+    </div>
+  </div>
+  <div id="messages"></div>
+  <div id="controls">
+    <input id="user-input" placeholder="Ej: 'Tenés mouse con cable?'">
+    <button id="send-btn">Enviar</button>
+  </div>
+</div>
+
+<script>
+// --- CONFIG ---
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwZDtsq-Gd8z6mgx7KsvOXkNH0VDSw3TOyLJkYZAJA9ux1a-FDyFdZl6FS5CnnQkqX7/exec"; // <-- REEMPLAZAR por tu URL de Apps Script
+const categoriaMap = { "0a8cecf3":"Hardware", "101b3d07":"Perifericos", "2f14078b":"Almacenamiento" };
+const medidaMap = { "683f2d93":"Horma", "782ac202":"Litro", "3df890cc":"Unidad", "92fc8fa0":"Docena" };
+
+// --- ELEMENTOS ---
+const fab = document.getElementById('chat-fab');
+const win = document.getElementById('chat-window');
+const closeBtn = document.getElementById('close-btn');
+const themeToggle = document.getElementById('theme-toggle');
+const messagesDiv = document.getElementById('messages');
+const input = document.getElementById('user-input');
+const sendBtn = document.getElementById('send-btn');
+
+// --- INTERACCIÓN ---
+fab.addEventListener('click', ()=>{ win.classList.toggle('open'); if(win.classList.contains('open')) input.focus(); });
+closeBtn.addEventListener('click', ()=>{ win.classList.remove('open'); });
+themeToggle.addEventListener('click', ()=>{
+  const curr = document.documentElement.getAttribute('data-theme');
+  document.documentElement.setAttribute('data-theme', curr==='dark'?'light':'dark');
+});
+sendBtn.addEventListener('click', sendMessage);
+input.addEventListener('keypress', e => { if(e.key==='Enter') sendMessage(); });
+
+// --- FUNCIONES ---
+function addMessage(text,sender='bot',isHTML=false){
+  const wrapper = document.createElement('div');
+  wrapper.className = 'msg '+(sender==='user'?'user':'bot');
+  const bubble = document.createElement('div');
+  bubble.className = 'bubble';
+  bubble.innerHTML = isHTML?text:text.replace(/\n/g,'<br>');
+  wrapper.appendChild(bubble);
+  messagesDiv.appendChild(wrapper);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+
+// --- BÚSQUEDA ---
+function detectIntention(text){
+  const t = text.toLowerCase();
+  if(t.includes("precio")||t.includes("cuánto")||t.includes("vale")) return "precio";
+  if(t.includes("stock")||t.includes("cantidad")||t.includes("tienen")||t.includes("hay")) return "stock";
+  if(t.includes("color")||t.includes("colores")) return "color";
+  if(t.includes("medida")||t.includes("tamaño")) return "medida";
+  if(t.includes("caracteristicas")||t.includes("detalles")||t.includes("info")) return "caracteristicas";
+  return "general";
+}
+
+function resolveImage(p){
+  if(!p || !p.Imagen) return null;
+  const im = String(p.Imagen);
+  if(im.startsWith('http')) return im;
+  return 'https://www.appsheet.com/template/gettablefileurl?appName=c3f3d917-2b34-4dad-8d79-0a458a3795ff&tableName=PRODUCTOS&fileName=' + encodeURIComponent(im);
+}
+
+async function fetchProducts(){
+  try{
+    const resp = await fetch(SCRIPT_URL);
+    if(!resp.ok) throw new Error('fetch failed '+resp.status);
+    const data = await resp.json();
+    return Array.isArray(data)?data:[];
+  }catch(e){ console.error(e); return []; }
+}
+
+function productCardHTML(p){
+  const img = resolveImage(p);
+  return `
+  <div class="product-card">
+    ${ img?`<img src="${img}" alt="${p.Descripcion}">` : '' }
+    <div class="product-info">
+      <div class="name">${p.Descripcion}</div>
+      <div class="meta">Categoria: ${categoriaMap[p.Categoria]||p.Categoria} | Medida: ${medidaMap[p.Medida]||p.Medida}</div>
+      <div class="price">💲 $${p.Precio} | 📦 ${p.Cantidad}</div>
+      <div class="meta">🎨 ${p.Color || 'N/D'} | ⚙️ ${p.Caracteristicas || 'N/D'}</div>
+    </div>
+  </div>
+  `;
+}
+
+async function sendMessage(){
+  const text = input.value.trim();
+  if(!text) return;
+  addMessage(text,'user');
+  input.value='';
+  const products = await fetchProducts();
+  const intention = detectIntention(text);
+  const term = text.toLowerCase();
+  
+  const matched = products.filter(p=>{
+    const d = p.Descripcion.toLowerCase();
+    const c = categoriaMap[p.Categoria]?.toLowerCase()||'';
+    return d.includes(term) || c.includes(term);
+  });
+  
+  if(matched.length===0){ addMessage("No encontré productos que coincidan con tu búsqueda."); return; }
+  
+  let html = '';
+  if(intention==='precio' || intention==='stock' || intention==='color' || intention==='medida' || intention==='caracteristicas'){
+    matched.forEach(p=>{
+      let msg = '';
+      switch(intention){
+        case 'precio': msg=`💲 El precio de ${p.Descripcion} es $${p.Precio}`; break;
+        case 'stock': msg=`📦 Cantidad disponible de ${p.Descripcion}: ${p.Cantidad}`; break;
+        case 'color': msg=`🎨 Colores de ${p.Descripcion}: ${p.Color||'N/D'}`; break;
+        case 'medida': msg=`📏 Medida de ${p.Descripcion}: ${medidaMap[p.Medida]||p.Medida}`; break;
+        case 'caracteristicas': msg=`⚙️ Caracteristicas de ${p.Descripcion}: ${p.Caracteristicas||'N/D'}`; break;
+      }
+      html+=`<div>${msg}</div>`+productCardHTML(p);
+    });
+  } else {
+    matched.forEach(p=>{ html+=productCardHTML(p); });
+  }
+  
+  addMessage(html,true,true);
+}
+</script>
+
+</body>
+</html>
